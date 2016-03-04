@@ -1,86 +1,118 @@
 #include "WPILib.h"
-#include "Commands/Command.h"
-#include "Commands/ExampleCommand.h"
-#include "CommandBase.h"
+#include "CustomFunctions.h"
 
 class Robot: public IterativeRobot
 {
 private:
-	std::unique_ptr<Command> autonomousCommand;
-	SendableChooser *chooser;
+	RobotDrive DriveSystem;
+	Talon MotorShootLeft;
+	Talon MotorShootRight;
+	Talon MotorGrab;
+	TalonSRX MotorLiftLeft;
+	TalonSRX MotorLiftRight;
+	Joystick Xbox;
+	Joystick Joy;
+	DigitalInput LimitLowLeft;
+	DigitalInput LimitLowRight;
+
+
+public:
+	Robot() :
+		DriveSystem(0,1), 	// Drive Motors
+		MotorShootLeft(2),	// Left Shooter Motor
+		MotorShootRight(3),	// Right Shooter Motor
+		MotorGrab(4),			// Loading Motors
+		MotorLiftLeft(5), 	// Left Lift Motor
+		MotorLiftRight(6), 	// Right Lift Motor
+		Xbox(0),			// XBOX Controller
+		Joy(1),				// Joystick
+		LimitLowLeft(0),		// Limit Switch Left
+		LimitLowRight(1)	// Limit Switch Right
+	{
+	}
 
 	void RobotInit()
 	{
-		CommandBase::init();
-		chooser = new SendableChooser();
-		chooser->AddDefault("Default Auto", new ExampleCommand());
-		//chooser->AddObject("My Auto", new MyAutoCommand());
-		SmartDashboard::PutData("Auto Modes", chooser);
+		DriveSystem.TankDrive(0.0,0.0); // Safety Stop
 	}
 
-	/**
-     * This function is called once each time the robot enters Disabled mode.
-     * You can use it to reset any subsystem information you want to clear when
-	 * the robot is disabled.
-     */
-	void DisabledInit()
-	{
-	}
-
-	void DisabledPeriodic()
-	{
-		Scheduler::GetInstance()->Run();
-	}
-
-	/**
-	 * This autonomous (along with the chooser code above) shows how to select between different autonomous modes
-	 * using the dashboard. The sendable chooser code works with the Java SmartDashboard. If you prefer the LabVIEW
-	 * Dashboard, remove all of the chooser code and uncomment the GetString code to get the auto name from the text box
-	 * below the Gyro
-	 *
-	 * You can add additional auto modes by adding additional commands to the chooser code above (like the commented example)
-	 * or additional comparisons to the if-else structure below with additional strings & commands.
-	 */
 	void AutonomousInit()
 	{
-		/* std::string autoSelected = SmartDashboard::GetString("Auto Selector", "Default");
-		if(autoSelected == "My Auto") {
-			autonomousCommand.reset(new MyAutoCommand());
-		} else {
-			autonomousCommand.reset(new ExampleCommand());
-		} */
 
-		autonomousCommand.reset((Command *)chooser->GetSelected());
-
-		if (autonomousCommand != NULL)
-			autonomousCommand->Start();
 	}
 
 	void AutonomousPeriodic()
 	{
-		Scheduler::GetInstance()->Run();
+
 	}
 
 	void TeleopInit()
 	{
-		// This makes sure that the autonomous stops running when
-		// teleop starts running. If you want the autonomous to
-		// continue until interrupted by another command, remove
-		// this line or comment it out.
-		if (autonomousCommand != NULL)
-			autonomousCommand->Cancel();
+
 	}
 
 	void TeleopPeriodic()
 	{
-		Scheduler::GetInstance()->Run();
+		// Inverting
+		bool XboxInvert = Xbox.GetRawButton(6); 	// Is Right Shoulder Button Pressed?
+		bool JoyInvert = Joy.GetRawAxis(3) < 0.5;	// Is Joystick Padle Down?
+
+		// Set Motor Directions
+		MotorShootLeft.SetInverted(JoyInvert);
+		MotorShootRight.SetInverted(JoyInvert);
+		MotorGrab.SetInverted(JoyInvert);
+		DriveSystem.SetInvertedMotor(XboxInvert);
+
+		// Driving Input
+		float LeftInput = AxisDeadband(Xbox.GetRawAxis(1), 0.20); // 20% Deadband
+		float RightInput = AxisDeadband(Xbox.GetRawAxis(5), 0.20);
+		float speed = 1.0-(Xbox.GetRawAxis(3)/2)*XboxInvert;
+
+		// Shooting Motors
+		if (Joy.GetRawButton(2)) { // Thumb Button
+			MotorShootLeft.Set(0.75);
+			MotorShootRight.Set(0.75);
+		}
+		else {
+			MotorShootLeft.Set(0.0);
+			MotorShootRight.Set(0.0);
+		}
+
+		// Loading Motors
+		if (Joy.GetRawButton(1)) { // Trigger Button
+			MotorGrab.Set(1);
+		}
+		else {
+			MotorGrab.Set(0);
+		}
+
+		// Lifting Motors
+		if (Joy.GetRawButton(5)) { // Top #5
+			MotorLiftLeft.Set(-1.0);
+			MotorLiftRight.Set(-1.0);
+		}
+		else if (Joy.GetRawButton(3)) { // Top #3
+			if (!LimitLowLeft.Get())  MotorLiftLeft.Set(0.35);  else MotorLiftLeft.Set(0.0); // Left Limiting
+			if (!LimitLowRight.Get()) MotorLiftRight.Set(0.35); else MotorLiftRight.Set(0.0); // Right Limiting
+		}
+		else {
+			MotorLiftLeft.Set(0.0); // Stop Motors
+			MotorLiftRight.Set(0.0);
+		}
+
+
+		// Drive
+		if (!XboxInvert) { // Swap left and right if XboxInvert = true
+			DriveSystem.TankDrive(LeftInput*speed, RightInput*speed); // Normal
+		}
+		else {
+			DriveSystem.TankDrive(RightInput*speed, LeftInput*speed); // Swapped
+		}
 	}
 
 	void TestPeriodic()
 	{
-		LiveWindow::GetInstance()->Run();
 	}
 };
 
 START_ROBOT_CLASS(Robot)
-
