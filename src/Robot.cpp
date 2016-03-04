@@ -61,7 +61,8 @@ public:
 		MotorShootLeft.SetInverted(JoyInvert);
 		MotorShootRight.SetInverted(JoyInvert);
 		MotorGrab.SetInverted(JoyInvert);
-		DriveSystem.SetInvertedMotor(XboxInvert);
+		DriveSystem.SetInvertedMotor(RobotDrive::MotorType(0), XboxInvert); // Not Clean :(
+		DriveSystem.SetInvertedMotor(RobotDrive::MotorType(1), XboxInvert); // Won't let me use "DriveSystem.MotorType(0)"
 
 		// Driving Input
 		float LeftInput = AxisDeadband(Xbox.GetRawAxis(1), 0.20); // 20% Deadband
