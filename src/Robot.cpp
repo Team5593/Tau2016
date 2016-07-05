@@ -13,6 +13,7 @@ private:
 	Joystick Cont;
 	DigitalInput LimitLeft;
 	DigitalInput LimitRight;
+	//*Gyro Gyro;
 
 public:
 	Robot():
@@ -50,10 +51,14 @@ public:
 
 	void TeleopPeriodic()
 	{
+		//float angle = Gyro::GetAngle();
 		// Driving
-		float forwardSpeed = Cont.GetRawAxis(1);
+		float forwardSpeed = -Cont.GetRawAxis(1);
 		float headingAngle = Cont.GetRawAxis(4);
-		float speed = 0.65; // 80%
+		if (headingAngle <= 0.2 and headingAngle >= -0.2) {
+			headingAngle = 0;
+		}
+		float speed = 0.8; // 80%
 		DriveSystem.TankDrive((forwardSpeed+headingAngle)*speed, (forwardSpeed-headingAngle)*speed);
 
 		// Shooter Wheels
@@ -64,12 +69,12 @@ public:
 		MotorLoad.Set(Cont.GetRawAxis(2)-Cont.GetRawButton(5));
 
 		// Lifting Motors
-		if (Cont.GetRawButton(1)) {
+		if (Cont.GetRawButton(4)) {
 			MotorLiftLeft.Set(-1.0);
 			MotorLiftRight.Set(-1.0);
 		}
-		else if (Cont.GetRawButton(4)) {
-			MotorLiftLeft.Set(0.35*!LimitLeft.Get());
+		else if (Cont.GetRawButton(1)) {
+			MotorLiftLeft.Set(0.35*LimitLeft.Get());
 			MotorLiftRight.Set(0.35*!LimitRight.Get());
 		}
 		else {
